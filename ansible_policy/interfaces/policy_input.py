@@ -3,12 +3,13 @@ from typing import Self
 import json
 import jsonpickle
 import yaml
+from dataclasses_jsonschema import JsonSchemaMixin
 
 
 # Inherit this class to create a custom target type
 # The custom type can be specified in a Policybook like `target: <custom_type_name>`
 @dataclass
-class PolicyInput(object):
+class PolicyInput(JsonSchemaMixin):
     type: str = ""
     name: str = ""
     filepath: str = ""

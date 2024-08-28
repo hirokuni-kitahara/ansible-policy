@@ -3,24 +3,31 @@ import re
 import glob
 import tempfile
 from dataclasses import dataclass, field
-from typing import List, Self
+from typing import List, Dict, Self
 
 from ansible_policy.policybook.utils import load_policybook_dir
+from ansible_policy.interfaces.policy_engine import PolicyEngine
 from ansible_policy.interfaces.policy_transpiler import PolicyTranspiler
+from ansible_policy.interfaces.result_summarizer import ResultSummarizer
+from ansible_policy.interfaces.policy_input import PolicyInputFromJSON
 from ansible_policy.models import Policy
 from ansible_policy.utils import (
     init_logger,
     match_str_expression,
     get_tags_from_rego_policy_file,
+    load_plugin_set,
 )
 
 
 logger = init_logger(__name__, os.getenv("ANSIBLE_POLICY_LOG_LEVEL", "info"))
 
+default_config_filename = "ansible-policy.cfg"
+
 
 field_re = r"\[([a-zA-Z0-9._\-]+)\]"
 policy_pattern_re = r"[ ]*([^ #]*)[ ]+(tag[ ]?=[ ]?[^ ]+)?.*(enabled|disabled).*"
 source_pattern_re = r"[ ]*([^ #]*)[ ]*=[ ]*([^ ]+)([ ]+type[ ]?=[ ]?[^ ]+)?.*"
+plugin_pattern_re = r"[ ]*([^ #]*)[ ]*=[ ]*(.*)[ ]*"
 
 default_policy_install_dir = "/tmp/ansible-policy/installed_policies"
 
@@ -152,6 +159,35 @@ class Source(object):
             pass
 
         return policies
+    
+
+@dataclass
+class Plugin(object):
+    name: str = ""
+    engine: PolicyEngine = None
+    transpiler: PolicyTranspiler = None
+    summarizer: ResultSummarizer = None
+    custom_types: Dict[str, PolicyInputFromJSON] = field(default_factory=dict)
+
+    @classmethod
+    def load(cls, name: str="", dir_path: str="", line: str=""):
+        if not name and not dir_path and not line:
+            raise ValueError("`name` or `line` are required to load plugin")
+        if line:
+            matched = re.match(plugin_pattern_re, line)
+            if not matched:
+                return None
+            name = matched.group(1)
+            dir_path = matched.group(2)
+        
+        engine, transpiler, summarizer, custom_types = load_plugin_set(path=dir_path)
+        plugin = cls()
+        plugin.name = name
+        plugin.engine = engine
+        plugin.transpiler = transpiler
+        plugin.summarizer = summarizer
+        plugin.custom_types = custom_types
+        return plugin
 
 
 @dataclass
@@ -187,9 +223,25 @@ class SourceConfig(object):
         return config
 
 
+@dataclass
+class PluginConfig(object):
+    plugins: list = field(default_factory=list)
+
+    @staticmethod
+    def from_lines(lines: list):
+        config = PluginConfig()
+        for line in lines:
+            plugin = Plugin.load(line=line)
+            if not plugin:
+                continue
+            config.plugins.append(plugin)
+        return config
+
+
 _mapping = {
     "policy": PolicyConfig,
     "source": SourceConfig,
+    "plugin": PluginConfig,
 }
 
 
@@ -197,6 +249,7 @@ _mapping = {
 class Config(object):
     policy: PolicyConfig = field(default_factory=PolicyConfig)
     source: SourceConfig = field(default_factory=SourceConfig)
+    plugin: PluginConfig = field(default_factory=PluginConfig)
 
     def __post_init__(self):
         pass

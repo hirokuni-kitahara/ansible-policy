@@ -4,14 +4,14 @@
     "action": "Action::\"view\"",
     "entities": [
         {
-            "uid": {"type":"User","id":"alice"},
-            "attrs": {"age":18},
+            "uid": {"type": "User", "id": "alice"},
+            "attrs": {"age": 18},
             "parents": []
         },
         {
-            "uid": {"type":"Photo","id":"VacationPhoto94.jpg"},
+            "uid": {"type": "Photo", "id": "VacationPhoto94.jpg"},
             "attrs": {},
-            "parents": [{"type":"Album","id":"jane_vacation"}]
+            "parents": [{"type": "Album", "id": "jane_vacation"}]
         }
     ],
     "schema": null

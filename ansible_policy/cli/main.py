@@ -1,13 +1,12 @@
 import os
 import sys
 import argparse
-from ansible_policy.config import Config
+from ansible_policy.config import Config, default_config_filename, Plugin
 from ansible_policy.evaluate import PolicyEvaluator
 from ansible_policy.languages.opa.policy_engine import OPAEngine
 from ansible_policy.languages.opa.policy_transpiler import OPATranspiler
 from ansible_policy.result_summarizer import DefaultSummarizer
 from ansible_policy.result_formatter import ResultFormatter
-from ansible_policy.interfaces.utils import load_language_set
 
 
 def main():
@@ -15,36 +14,28 @@ def main():
     parser.add_argument('-p', '--project', type=str, help='path to a target Ansible contents (directory or file) or JSON file')
     parser.add_argument('--policy-dir', type=str, help='path to a file or directory to policies')
     parser.add_argument("-f", "--format", default="plain", help="output format (`plain` or `json`, default to `plain`)")
-    parser.add_argument("-l", "--language-dir", default="", help="path to language directory")
-    parser.add_argument('--config', type=str, default='', help='path to a config file')
+    parser.add_argument('-c', '--config', type=str, default='', help='path to a config file')
     
     args = parser.parse_args()
 
-    engine = None
-    transpiler = None
-    summarizer = None
-    custom_types = None
+    config_path = ""
     if args.config:
-        config = Config.load()
-        # TODO: initialize engine, transpiler, summarizer based on config here
-    elif args.language_dir:
-        lang_dir_path = args.language_dir
-        engine, transpiler, summarizer, custom_types = load_language_set(path=lang_dir_path)
+        config_path = args.config
+    elif args.policy_dir:
+        _path = os.path.join(args.policy_dir, default_config_filename)
+        if os.path.exists(_path):
+            config_path = _path
 
-    # set default if empty
-    if not engine:
-        engine = OPAEngine()
-    if not transpiler:
-        transpiler = OPATranspiler()
-    if not summarizer:
-        summarizer = DefaultSummarizer()
+    plugins = []
+    if config_path:
+        config = Config.load(config_path)
+        plugins = config.plugin.plugins
+    else:
+        default_plugin_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../languages/opa"))
+        default_plugin = Plugin.load(name="default", dir_path=default_plugin_path)
+        plugins = [default_plugin]
 
-    evaluator = PolicyEvaluator(
-        engine=engine,
-        transpiler=transpiler,
-        summarizer=summarizer,
-        custom_types=custom_types,
-    )
+    evaluator = PolicyEvaluator(plugins=plugins)
     result = evaluator.run(args.policy_dir, args.project)
     if not result:
         raise ValueError('Evaluation result is empty')

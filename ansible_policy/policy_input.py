@@ -37,6 +37,7 @@ from ansible_content_capture.utils import (
     extract_var_parts,
 )
 
+
 scanner = AnsibleScanner(silent=True)
 
 
@@ -665,7 +666,7 @@ class PolicyInputTask(PolicyInputAnsibleBase):
     
     # task attributes
     name: str = None
-    __module__: any = None  # When a task is `command: "ls"`, then it will be `__module__: {"command": "ls"}`
+    _module: any = None  # When a task is `command: "ls"`, then it will be `__module__: {"command": "ls"}`
     action: any = None
     args: any = None
     _async: any = None  # need the leading `_` to avoid python syntax error
@@ -703,7 +704,7 @@ class PolicyInputTask(PolicyInputAnsibleBase):
             _k = key_mappings.get(k, k)
             if hasattr(input_data, _k):
                 setattr(input_data, _k, v)
-        input_data.__module__ = {
+        input_data._module = {
             obj.module: obj.module_options,
         }
         input_data.module = obj.module
