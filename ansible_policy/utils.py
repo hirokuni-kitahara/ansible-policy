@@ -9,6 +9,16 @@ import zipfile
 import tempfile
 import logging
 import subprocess
+from typing import Dict, Tuple
+from importlib.util import spec_from_file_location, module_from_spec
+import os
+import traceback
+from inspect import isclass
+
+from ansible_policy.interfaces.policy_engine import PolicyEngine
+from ansible_policy.interfaces.policy_transpiler import PolicyTranspiler
+from ansible_policy.interfaces.result_summarizer import ResultSummarizer
+from ansible_policy.interfaces.policy_input import PolicyInputFromJSON
 
 
 default_target_type = "task"
@@ -28,22 +38,7 @@ def init_logger(name: str, level: str):
     return logger
 
 
-logger = init_logger(__name__, os.getenv("ANSIBLE_GK_LOG_LEVEL", "info"))
-
-
-def validate_opa_installation(executable_name: str = "opa"):
-    proc = subprocess.run(
-        f"command -v {executable_name}",
-        shell=True,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if proc.stdout and proc.returncode == 0:
-        return
-    else:
-        raise ValueError("`opa` command is required to evaluate OPA policies")
+logger = init_logger(__name__, os.getenv("ANSIBLE_POLICY_LOG_LEVEL", "info"))
 
 
 def load_galaxy_data(fpath: str):
@@ -54,59 +49,6 @@ def load_galaxy_data(fpath: str):
         raise ValueError("loaded galaxy data is empty")
 
     return data.get("galaxy", {})
-
-
-def eval_opa_policy(rego_path: str, input_data: str, external_data_path: str, executable_name: str = "opa"):
-    rego_pkg_name = get_rego_main_package_name(rego_path=rego_path)
-    if not rego_pkg_name:
-        raise ValueError("`package` must be defined in the rego policy file")
-
-    util_rego_path = os.path.join(os.path.dirname(__file__), "rego/utils.rego")
-    external_data_option = ""
-    if external_data_path:
-        external_data_option = f"--data {external_data_path}"
-    cmd_str = f"{executable_name} eval --data {util_rego_path} --data {rego_path} {external_data_option} --stdin-input 'data.{rego_pkg_name}'"
-    proc = subprocess.run(
-        cmd_str,
-        shell=True,
-        input=input_data,
-        # stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    logger.debug(f"command: {cmd_str}")
-    logger.debug(f"proc.input_data: {input_data}")
-    logger.debug(f"proc.stdout: {proc.stdout}")
-    logger.debug(f"proc.stderr: {proc.stderr}")
-
-    if proc.returncode != 0:
-        error = f"failed to run `opa eval` command; error details:\nSTDOUT: {proc.stdout}\nSTDERR: {proc.stderr}"
-        raise ValueError(error)
-
-    result = json.loads(proc.stdout)
-    if "result" not in result:
-        raise ValueError(f"`result` field does not exist in the output from `opa eval` command; raw output: {proc.stdout}")
-
-    result_arr = result["result"]
-    if not result_arr:
-        raise ValueError(f"`result` field in the output from `opa eval` command has no contents; raw output: {proc.stdout}")
-
-    first_result = result_arr[0]
-    if not first_result and "expressions" not in first_result:
-        raise ValueError(f"`expressions` field does not exist in the first result of output from `opa eval` command; first_result: {first_result}")
-
-    expressions = first_result["expressions"]
-    if not expressions:
-        raise ValueError(f"`expressions` field in the output from `opa eval` command has no contents; first_result: {first_result}")
-
-    expression = expressions[0]
-    result_value = expression.get("value", {})
-    eval_result = {
-        "value": result_value,
-        "message": proc.stderr,
-    }
-    return eval_result
 
 
 def get_module_name_from_task(task):
@@ -156,18 +98,6 @@ def embed_module_info_with_galaxy(task, galaxy):
             "short_name": short_name,
         }
     return
-
-
-def get_rego_main_package_name(rego_path: str):
-    pkg_name = ""
-    with open(rego_path, "r") as file:
-        prefix = "package "
-        for line in file:
-            _line = line.strip()
-            if _line.startswith(prefix):
-                pkg_name = _line[len(prefix) :]
-                break
-    return pkg_name
 
 
 def uncompress_file(fpath: str):
@@ -242,38 +172,6 @@ def match_str_expression(pattern: str, text: str):
         return re.match(pattern, text)
 
     return pattern == text
-
-
-def detect_target_module_pattern(policy_path: str):
-    var_name = "__target_module__"
-    pattern = None
-    with open(policy_path, "r") as file:
-        for line in file:
-            if var_name in line:
-                parts = [p.strip() for p in line.split("=")]
-                if len(parts) != 2:
-                    continue
-                if parts[0] == var_name:
-                    pattern = parts[1].strip('"').strip("'")
-                    break
-    return pattern
-
-
-def detect_target_type_pattern(policy_path: str):
-    var_name = "__target__"
-    pattern = None
-    with open(policy_path, "r") as file:
-        for line in file:
-            if var_name in line:
-                parts = [p.strip() for p in line.split("=")]
-                if len(parts) != 2:
-                    continue
-                if parts[0] == var_name:
-                    pattern = parts[1].strip('"').strip("'")
-                    break
-    if not pattern:
-        pattern = default_target_type
-    return pattern
 
 
 def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
@@ -362,16 +260,6 @@ def get_tags_from_rego_policy_file(policy_path: str):
                     tags = json.loads(parts[1])
                     break
     return tags
-
-
-def match_target_module(module_fqcn: str, rego_path: str):
-    module_pattern = detect_target_module_pattern(policy_path=rego_path)
-    return match_str_expression(module_pattern, module_fqcn)
-
-
-def match_target_type(target_type: str, rego_path: str):
-    type_pattern = detect_target_type_pattern(policy_path=rego_path)
-    return match_str_expression(type_pattern, target_type)
 
 
 def find_task_line_number(
@@ -722,3 +610,77 @@ def _find_play_block(yaml_lines: list, start_line_num: int):
     yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
     line_num_in_file = [begin_line_num + 1, end_line_num + 1]
     return yaml_lines, line_num_in_file
+
+
+def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", first_one: bool = True, only_subclass: bool = True, fail_on_error: bool = False):
+    search_path = dir_path
+    found = False
+    if os.path.exists(search_path):
+        found = True
+    if not found and base_dir:
+        self_path = os.path.abspath(base_dir)
+        search_path = os.path.join(os.path.dirname(self_path), dir_path)
+        if os.path.exists(search_path):
+            found = True
+
+    if not found:
+        raise ValueError(f'Path not found "{dir_path}"')
+
+    files = os.listdir(search_path)
+    scripts = [os.path.join(search_path, f) for f in files if f[-3:] == ".py"]
+    classes = []
+    errors = []
+    for s in scripts:
+        try:
+            short_module_name = os.path.basename(s)[:-3]
+            spec = spec_from_file_location(short_module_name, s)
+            mod = module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            for k in mod.__dict__:
+                cls = getattr(mod, k)
+                if not callable(cls):
+                    continue
+                if not isclass(cls):
+                    continue
+                if not issubclass(cls, target_class):
+                    continue
+                if only_subclass and cls == target_class:
+                    continue
+                classes.append(cls)
+                if first_one:
+                    break
+        except Exception:
+            exc = traceback.format_exc()
+            msg = f"failed to load a rule module {s}: {exc}"
+            if fail_on_error:
+                raise ValueError(msg)
+            else:
+                errors.append(msg)
+    return classes, errors
+
+
+def load_plugin_set(path: str) -> Tuple[PolicyEngine, PolicyTranspiler, ResultSummarizer, Dict[str, type]]:
+    engine_classes, errors = load_classes_in_dir(path, PolicyEngine, only_subclass=True, first_one=True)
+    engine = None
+    if engine_classes:
+        engine = engine_classes[0]()
+
+    transpiler_classes, errors = load_classes_in_dir(path, PolicyTranspiler, only_subclass=True, first_one=True)
+    transpiler = None
+    if transpiler_classes:
+        transpiler = transpiler_classes[0]()
+
+    summarizer_classes, errors = load_classes_in_dir(path, ResultSummarizer, only_subclass=True, first_one=True)
+    summarizer = None
+    if summarizer_classes:
+        summarizer = summarizer_classes[0]()
+
+    input_classes, errors = load_classes_in_dir(path, PolicyInputFromJSON, only_subclass=True, first_one=True)
+    custom_types = {}
+    if input_classes:
+        for input_class in input_classes:
+            type_name = input_class().type
+            custom_types[type_name] = input_class
+
+    return engine, transpiler, summarizer, custom_types
+

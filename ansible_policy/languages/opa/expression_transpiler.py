@@ -16,7 +16,9 @@
 
 import json
 import string
-from ansible_policy.policybook.rego_model import RegoFunc
+
+from ansible_policy.languages.opa.rego_model import RegoFunc
+
 
 # rego util funcs
 item_not_in_list_func = """

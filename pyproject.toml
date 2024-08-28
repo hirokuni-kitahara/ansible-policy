@@ -25,6 +25,7 @@ dependencies = [
     "cffi>=1.16.0",
     "charset-normalizer>=3.3.2",
     "cryptography>=42.0.8",
+    "dataclasses-jsonschema>=2.16.0",
     "docutils>=0.21.2",
     "dpath>=2.2.0",
     "drools-jpy>=0.3.8",
@@ -71,7 +72,7 @@ dynamic = ["version"]
 version = {attr = "ansible_policy.__version__.__version__"}
 
 [project.scripts]
-ansible-policy = "ansible_policy.eval_policy:main"
+ansible-policy = "ansible_policy.cli.main:main"
 
 [tool.setuptools]
 py-modules = ["ansible_policy"]

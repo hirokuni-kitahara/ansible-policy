@@ -72,7 +72,15 @@ def visit_condition(parsed_condition: ConditionTypes):
     elif isinstance(parsed_condition, Boolean):
         return {"Boolean": True} if parsed_condition.value == "true" else {"Boolean": False}
     elif isinstance(parsed_condition, Identifier):
-        if parsed_condition.value.startswith("input"):
+        if parsed_condition.value.startswith("context"):
+            return {"Context": parsed_condition.value}
+        elif parsed_condition.value.startswith("principal"):
+            return {"Principal": parsed_condition.value}
+        elif parsed_condition.value.startswith("action"):
+            return {"Action": parsed_condition.value}
+        elif parsed_condition.value.startswith("resource"):
+            return {"Resource": parsed_condition.value}
+        elif parsed_condition.value.startswith("input"):
             return {"Input": parsed_condition.value}
         else:
             return {"Variable": parsed_condition.value}

@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-
-#  Copyright 2022 Red Hat, Inc.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-
+from dataclasses import dataclass, field
 import traceback
 import yaml
 import argparse
@@ -21,11 +6,19 @@ import os
 import glob
 import re
 import string
-from ansible_policy.policybook.json_generator import generate_dict_policysets
-from ansible_policy.policybook.policy_parser import parse_policy_sets, VALID_ACTIONS
-from ansible_policy.policybook.rego_model import RegoPolicy, RegoFunc
+from typing import List, Union
+
+
+from ansible_policy.models import Policy, PolicyMetadata
+from ansible_policy.policybook.policybook_models import Policybook, PolicySet
+from ansible_policy.policybook.policy_parser import VALID_ACTIONS
 from ansible_policy.utils import init_logger
-from ansible_policy.policybook.expressioin_transpiler import ExpressionTranspiler
+from ansible_policy.interfaces.policy_transpiler import PolicyTranspiler
+
+
+from ansible_policy.languages.opa.rego_model import RegoPolicy, RegoFunc
+from ansible_policy.languages.opa.expression_transpiler import ExpressionTranspiler
+
 
 logger = init_logger(__name__, os.getenv("ANSIBLE_GK_LOG_LEVEL", "info"))
 
@@ -40,71 +33,19 @@ ${func_name} = true if {
 )
 
 
-class PolicyTranspiler:
-    """
-    PolicyTranspiler transforms a policybook to a Rego policy.
-    """
+@dataclass
+class OPATranspiler(PolicyTranspiler):
+    def run(self, policybook: Policybook) -> List[Policy]:
+        return self.policybook_to_rego(policybook)
 
-    def __init__(self, tmp_dir=None):
-        self.tmp_dir = tmp_dir
+    def policybook_to_rego(self, policybook: Policybook) -> List[Policy]:
+        return self.policyset_to_rego(policybook.policy)
 
-    def run(self, input, outdir):
-        if "extensions/policy" not in outdir:
-            outdir = os.path.join(outdir, "extensions/policy")
-        os.makedirs(outdir, exist_ok=True)
-        if os.path.isfile(input):
-            ast = self.policybook_to_ast(input)
-            self.ast_to_rego(ast, outdir)
-        elif os.path.isdir(input):
-            pattern1 = f"{input}/**/policies/**/*.yml"
-            pattern2 = f"{input}/**/extensions/policy/**/*.yml"
-            policy_list = []
-            _found = glob.glob(pattern1, recursive=True)
-            if _found:
-                policy_list.extend(_found)
-            _found = glob.glob(pattern2, recursive=True)
-            if _found:
-                policy_list.extend(_found)
-            if not policy_list:
-                input_parts = input.split("/")
-                if "policies" in input_parts or "policy" in input_parts:
-                    pattern3 = f"{input}/**/*.yml"
-                    _found = glob.glob(pattern3, recursive=True)
-                    if _found:
-                        policy_list.extend(_found)
-            for p in policy_list:
-                logger.debug(f"Transpiling policy file `{p}`")
-                outdir_for_this_policy = outdir
-                if "/post_run" in p and "/post_run" not in outdir_for_this_policy:
-                    outdir_for_this_policy = os.path.join(outdir, "post_run")
-                if "/pre_run" not in outdir_for_this_policy:
-                    outdir_for_this_policy = os.path.join(outdir, "pre_run")
-                os.makedirs(outdir_for_this_policy, exist_ok=True)
-                ast = self.policybook_to_ast(p)
-                self.ast_to_rego(ast, outdir_for_this_policy)
-        else:
-            raise ValueError("invalid input")
-
-    def policybook_to_ast(self, policy_file):
-        policyset = None
-        try:
-            with open(policy_file, "r") as f:
-                data = yaml.safe_load(f.read())
-                policyset = generate_dict_policysets(parse_policy_sets(data))
-        except Exception:
-            err = traceback.format_exc()
-            logger.warning(f"Failed to transpile `{policy_file}`. details: {err}")
-        return policyset
-
-    def ast_to_rego(self, ast, rego_dir):
-        for ps in ast:
-            self.policyset_to_rego(ps, rego_dir)
-
-    def policyset_to_rego(self, ast_data, rego_dir):
-        if "PolicySet" not in ast_data:
+    def policyset_to_rego(self, policy_set: PolicySet) -> List[Policy]:
+        if "PolicySet" not in policy_set:
             raise ValueError("no policy found")
 
-        ps = ast_data["PolicySet"]
+        ps = policy_set["PolicySet"]
         if "name" not in ps:
             raise ValueError("name field is empty")
 
@@ -121,7 +62,6 @@ class PolicyTranspiler:
             rego_policy.import_statements = [
                 "import future.keywords.if",
                 "import future.keywords.in",
-                "import data.ansible_policy.resolve_var",
             ]
             # tags
             rego_policy.tags = pol.get("tags", [])
@@ -141,14 +81,20 @@ class PolicyTranspiler:
             action = pol.get("actions", [])[0]
             action_func = self.action_to_rule(action, root_func)
             rego_policy.action_func = action_func
+            rego_body = rego_policy.to_rego()
 
-            policies.append(rego_policy)
-
-        for rpol in policies:
-            rego_output = rpol.to_rego()
-            with open(os.path.join(rego_dir, f"{rpol.package}.rego"), "w") as f:
-                f.write(rego_output)
-        return
+            policy = Policy(
+                is_policybook=False,
+                language="rego",
+                metadata=PolicyMetadata(
+                    target=rego_policy.target,
+                    tags=rego_policy.tags,
+                    attrs={"package": rego_policy.package},
+                ),
+                body=rego_body,
+            )
+            policies.append(policy)
+        return policies
 
     def action_to_rule(self, input: dict, condition: RegoFunc):
         action = input["Action"]
@@ -212,16 +158,6 @@ class PolicyTranspiler:
         return in_str.replace(" ", "_").replace("-", "_").replace("?", "").replace("(", "_").replace(")", "_")
 
 
-def load_file(input):
-    # load yaml file
-    ast_data = []
-    with open(input, "r") as f:
-        ast_data = yaml.safe_load(f)
-    if not ast_data:
-        raise ValueError("empty yaml file")
-    return ast_data
-
-
 def main():
     parser = argparse.ArgumentParser(description="TODO")
     parser.add_argument("-i", "--input", help="")
@@ -231,7 +167,7 @@ def main():
     input = args.input
     out_dir = args.output
 
-    pt = PolicyTranspiler()
+    pt = OPATranspiler()
     pt.run(input, out_dir)
 
 

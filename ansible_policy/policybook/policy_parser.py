@@ -4,7 +4,7 @@ from ansible_policy.policybook.condition_parser import (
     parse_condition as parse_condition_value,
 )
 
-VALID_ACTIONS = ["allow", "deny", "info", "warn", "ignore"]
+VALID_ACTIONS = ["allow", "deny", "info", "warn", "ignore", "permit", "forbid"]
 
 
 def parse_hosts(hosts):

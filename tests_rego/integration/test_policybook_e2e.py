@@ -50,7 +50,7 @@ def get_eval_result(output, action="allow"):
 
 
 transpiler = PolicyTranspiler()
-test_source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "integration")
+test_source_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class TestTranspiler:

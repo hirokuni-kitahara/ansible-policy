@@ -152,6 +152,10 @@ def OperatorExpressionFactory(tokens):
 
 def make_valid_prefix(vars: Dict):
     valid_prefix = Keyword("input")
+    valid_prefix |= Keyword("context")
+    valid_prefix |= Keyword("principal")
+    valid_prefix |= Keyword("action")
+    valid_prefix |= Keyword("resource")
     if not vars:
         return valid_prefix
     for prefix in vars.keys():

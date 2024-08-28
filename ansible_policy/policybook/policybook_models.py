@@ -1,6 +1,6 @@
-from __future__ import annotations
-from typing import Dict, List, NamedTuple, Union
-
+from typing import Dict, List, NamedTuple, Union, Self
+import yaml
+import glob
 import ansible_rulebook.condition_types as ct
 
 
@@ -29,3 +29,8 @@ class PolicySet(NamedTuple):
     vars: Dict
     policies: List[Policy]
     match_multiple_policies: bool = False
+
+
+class Policybook(NamedTuple):
+    filepath: str
+    policy: PolicySet

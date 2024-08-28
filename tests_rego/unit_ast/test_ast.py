@@ -190,7 +190,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("(input.range.i is not defined) and (input.range.i is defined) " "and (input.range.i == 1)", {}))
+    } == visit_condition(
+        parse_condition(
+            "(input.range.i is not defined) and (input.range.i is defined) " "and (input.range.i == 1)",
+            {},
+        )
+    )
     assert {
         "OrExpression": {
             "lhs": {
@@ -206,7 +211,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("(input.range.i is not defined) and (input.range.i is defined) or (input.range.i == 1)", {}))
+    } == visit_condition(
+        parse_condition(
+            "(input.range.i is not defined) and (input.range.i is defined) or (input.range.i == 1)",
+            {},
+        )
+    )
 
     assert {
         "AndExpression": {
@@ -223,7 +233,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("(input.range.i is not defined) and " "((input.range.i is defined) or (input.range.i == 1))", {}))
+    } == visit_condition(
+        parse_condition(
+            "(input.range.i is not defined) and " "((input.range.i is defined) or (input.range.i == 1))",
+            {},
+        )
+    )
 
     assert {
         "ItemInListExpression": {
@@ -246,7 +261,11 @@ def test_parse_condition():
     assert {
         "ItemInListExpression": {
             "lhs": {"Input": 'input["ansible.builtin.package"].name'},
-            "rhs": [[{"String": "A1"}, {"String": "A2"}], {"String": "B"}, {"String": "C"}],
+            "rhs": [
+                [{"String": "A1"}, {"String": "A2"}],
+                {"String": "B"},
+                {"String": "C"},
+            ],
         }
     } == visit_condition(parse_condition('input["ansible.builtin.package"].name in [["A1", "A2"], "B", "C"]', {}))
 
@@ -284,7 +303,10 @@ def test_parse_condition():
             "rhs": {"Variable": "allowed_collections"},
         }
     } == visit_condition(
-        parse_condition("input._agk.task.module_info.collection not in allowed_collections", {"allowed_collections": ["ansible.builtin"]})
+        parse_condition(
+            "input._agk.task.module_info.collection not in allowed_collections",
+            {"allowed_collections": ["ansible.builtin"]},
+        )
     )
 
     assert {
@@ -345,7 +367,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("input['url'] is " + 'match("https://example.com/users/.*/resources", ' + "ignorecase=true)", {}))
+    } == visit_condition(
+        parse_condition(
+            "input['url'] is " + 'match("https://example.com/users/.*/resources", ' + "ignorecase=true)",
+            {},
+        )
+    )
     assert {
         "SearchMatchesExpression": {
             "lhs": {"Input": "input.url"},
@@ -362,7 +389,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("input.url is " + 'match("https://example.com/users/.*/resources", ' + "ignorecase=true)", {}))
+    } == visit_condition(
+        parse_condition(
+            "input.url is " + 'match("https://example.com/users/.*/resources", ' + "ignorecase=true)",
+            {},
+        )
+    )
 
     assert {
         "SearchNotMatchesExpression": {
@@ -380,7 +412,12 @@ def test_parse_condition():
                 }
             },
         }
-    } == visit_condition(parse_condition("input.url is not " + 'match("https://example.com/users/.*/resources",ignorecase=true)', {}))
+    } == visit_condition(
+        parse_condition(
+            "input.url is not " + 'match("https://example.com/users/.*/resources",ignorecase=true)',
+            {},
+        )
+    )
     assert {
         "SearchMatchesExpression": {
             "lhs": {"Input": "input.url"},
@@ -487,7 +524,12 @@ def test_parse_condition():
                 "value": {"Variable": "minimum_age"},
             },
         }
-    } == visit_condition(parse_condition("input.persons is selectattr('person.age', '>', minimum_age)", dict(minimum_age=42)))
+    } == visit_condition(
+        parse_condition(
+            "input.persons is selectattr('person.age', '>', minimum_age)",
+            dict(minimum_age=42),
+        )
+    )
 
 
 def test_invalid_select_operator():
