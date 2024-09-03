@@ -8,7 +8,7 @@
       condition:
         all:
           - input.event_data.resolved_action == "community.general.ufw"
-          - input.event_data.changed
+          - input.event_data.res.changed
       actions:
         - deny:
             msg: "`Changed` event is detected for a `community.general.ufw` task"

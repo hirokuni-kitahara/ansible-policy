@@ -776,6 +776,55 @@ class PolicyInputPlay(PolicyInputAnsibleBase):
 
 
 @dataclass
+class PolicyInputEvent(PolicyInput):
+    type: str = InputTypeEvent
+
+    event_type: str = ""
+    uuid: str = None
+    stdout: str = None
+    event_data: dict = field(default_factory=dict)
+    name: str = ""
+    task_path: str = ""
+
+    @classmethod
+    def from_obj(cls, obj: Event) -> Self:
+        input_data = cls()
+        key_mappings = {}
+        for k, v in obj.__dict__.items():
+            _k = key_mappings.get(k, k)
+            if hasattr(input_data, _k):
+                setattr(input_data, _k, v)
+        
+        input_data.lines = {"begine": obj.line, "end": obj.line}
+        return input_data
+
+
+@dataclass
+class PolicyInputRESTData(PolicyInput):
+    type: str = InputTypeRest
+
+    headers: dict = field(default_factory=dict)
+    path: str = ""
+    method: str = ""
+    query_params: dict = field(default_factory=dict)
+    post_data: dict = field(default_factory=dict)
+
+    # merged data of `query_params` + `post_data`
+    data: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_obj(cls, obj: APIRequest) -> Self:
+        input_data = cls()
+        key_mappings = {}
+        for k, v in obj.__dict__.items():
+            _k = key_mappings.get(k, k)
+            if hasattr(input_data, _k):
+                setattr(input_data, _k, v)
+        
+        return input_data
+
+
+@dataclass
 class DataContainer(object):
     type: str = ""
     source: dict = field(default_factory=dict)

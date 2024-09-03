@@ -15,6 +15,9 @@ from ansible_policy.utils import (
 logger = init_logger(__name__, os.getenv("ANSIBLE_POLICY_LOG_LEVEL", "info"))
 
 
+DEFAULT_PLUGIN_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "./languages/opa"))
+
+
 @dataclass
 class PolicyEvaluator(object):
     # required
@@ -29,8 +32,9 @@ class PolicyEvaluator(object):
 
     def __post_init__(self):
         if not self.plugins:
-            raise ValueError("at least one plugin is required")
-        
+            _default_plugin = Plugin.load(name="default", dir_path=DEFAULT_PLUGIN_PATH)
+            self.plugins = [_default_plugin]
+
         default_plugin = None
         custom_types = {}
         for p in self.plugins:

@@ -11,8 +11,12 @@ from ansible_policy.interfaces.policy_input import PolicyInput
 from ansible_policy.policy_input import (
     PolicyInputTask,
     PolicyInputPlay,
+    PolicyInputEvent,
+    PolicyInputRESTData,
     load_input_from_project_dir,
     load_input_from_json_file,
+    load_input_from_event,
+    load_input_from_rest_data,
 )
 
 
@@ -73,13 +77,55 @@ class AnsibleTargetLoader(TargetLoader):
 
 @dataclass
 class EventTargetLoader(object):
-    pass
+    data_cache: dict = field(default_factory=dict)
+
+    def run(self, target_type: str, target_path: str, raw_ansible_file: str="") -> List[PolicyInput]:
+        # if there is a cache for this target type and path, return it
+        found_cache = self.data_cache.get(target_type, {}).get(target_path, None)
+        if found_cache:
+            return found_cache
+        
+        # otherwise, load event data and make policy input
+        data = None
+        with open(target_path, "r") as f:
+            data = json.load(f)
+        input_data = load_input_from_event(event=data)
+        input_data_for_type = input_data.get("event", [])
+        p_input_list = []
+        input_data_class = PolicyInputEvent
+        for single_input_data in input_data_for_type:
+            obj = getattr(single_input_data, "event")
+            p_input = input_data_class.from_obj(obj)
+            setattr(p_input, "filepath", target_path)
+            p_input_list.append(p_input)
+        return p_input_list
 
 
 
 @dataclass
 class RESTTargetLoader(object):
-    pass
+    data_cache: dict = field(default_factory=dict)
+
+    def run(self, target_type: str, target_path: str, raw_ansible_file: str="") -> List[PolicyInput]:
+        # if there is a cache for this target type and path, return it
+        found_cache = self.data_cache.get(target_type, {}).get(target_path, None)
+        if found_cache:
+            return found_cache
+        
+        # otherwise, load REST data and make policy input
+        data = None
+        with open(target_path, "r") as f:
+            data = json.load(f)
+        input_data = load_input_from_rest_data(rest_data=data)
+        input_data_for_type = input_data.get("rest", [])
+        p_input_list = []
+        input_data_class = PolicyInputRESTData
+        for single_input_data in input_data_for_type:
+            obj = getattr(single_input_data, "rest")
+            p_input = input_data_class.from_obj(obj)
+            setattr(p_input, "filepath", target_path)
+            p_input_list.append(p_input)
+        return p_input_list
 
 
 @dataclass

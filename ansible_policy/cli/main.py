@@ -19,21 +19,21 @@ def main():
     args = parser.parse_args()
 
     config_path = ""
+    # if a config path is specified, use it
     if args.config:
         config_path = args.config
     elif args.policy_dir:
+        # if a policy dir is specified, check if "ansible-policy.cfg" exists there
         _path = os.path.join(args.policy_dir, default_config_filename)
+        # use it if it exists
         if os.path.exists(_path):
             config_path = _path
 
-    plugins = []
+    plugins = None
+    # if any config file is found, load plugins based on it
     if config_path:
         config = Config.load(config_path)
         plugins = config.plugin.plugins
-    else:
-        default_plugin_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "../languages/opa"))
-        default_plugin = Plugin.load(name="default", dir_path=default_plugin_path)
-        plugins = [default_plugin]
 
     evaluator = PolicyEvaluator(plugins=plugins)
     result = evaluator.run(args.policy_dir, args.project)

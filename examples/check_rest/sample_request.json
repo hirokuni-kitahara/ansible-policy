@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "Host": "127.0.0.1:5000",
+    "User-Agent": "curl/8.6.0",
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Content-Length": "26"
+  },
+  "path": "/test-api",
+  "method": "POST",
+  "query_params": null,
+  "post_data": {
+    "username": "admin"
+  }
+}

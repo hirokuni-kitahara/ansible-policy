@@ -3,13 +3,6 @@ import logging
 import jsonpickle
 import argparse
 from flask import Flask, request
-from ansible_policy.models import (
-    PolicyEvaluator,
-    EvalTypeRest,
-    ResultFormatter,
-    FORMAT_REST,
-)
-from ansible_policy.rego_data import APIRequest
 
 
 app = Flask(__name__)
@@ -23,11 +16,16 @@ parser = argparse.ArgumentParser(description="TODO")
 parser.add_argument("--policy-dir", help="path to a directory containing policies to be evaluated")
 args = parser.parse_args()
 
-evaluator = PolicyEvaluator(policy_dir=args.policy_dir)
-formatter = ResultFormatter(format_type=FORMAT_REST, base_dir=os.getcwd())
+# curl -X 'POST' \
+#   'http://127.0.0.1:5000' \
+#   -H 'accept: application/json' \
+#   -H 'Content-Type: application/json' \
+#   -d '{
+#     "user": "hiro"
+#     }'
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/test-api", methods=["GET", "POST"])
 def index():
 
     headers = {}
@@ -39,7 +37,7 @@ def index():
         for key, val in request.args.items():
             query_params[key] = val
     post_data = request.json if request.mimetype == "application/json" else None
-    rest_request = APIRequest(
+    rest_request = dict(
         headers=headers,
         path=request.path,
         method=request.method,
@@ -47,14 +45,7 @@ def index():
         post_data=post_data,
     )
 
-    print("[DEBUG] Received POST data:", post_data)
-    result = evaluator.run(
-        eval_type=EvalTypeRest,
-        rest_request=rest_request,
-    )
-    formatter.print(result=result)
-
-    return jsonpickle.encode(result, make_refs=False)
+    return jsonpickle.encode(rest_request, make_refs=False)
 
 
 if __name__ == "__main__":
