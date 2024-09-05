@@ -5,7 +5,7 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import List, Dict, Self
 
-from ansible_policy.policybook.utils import load_policybook_dir
+from ansible_policy.policybook.utils import load_policybook_dir, load_policybook_file
 from ansible_policy.interfaces.policy_engine import PolicyEngine
 from ansible_policy.interfaces.policy_transpiler import PolicyTranspiler
 from ansible_policy.interfaces.result_summarizer import ResultSummarizer
@@ -150,10 +150,15 @@ class Source(object):
 
         policies = []
         if policybook_dir:
-            policybooks = load_policybook_dir(root_dir=policybook_dir)
-            for policybook in policybooks:
+            if os.path.isfile(policybook_dir):
+                policybook = load_policybook_file(filepath=policybook_dir)
                 policy = Policy(is_policybook=True, policybook_data=policybook)
                 policies.append(policy)
+            else:
+                policybooks = load_policybook_dir(root_dir=policybook_dir)
+                for policybook in policybooks:
+                    policy = Policy(is_policybook=True, policybook_data=policybook)
+                    policies.append(policy)
         else:
             # TODO: policy file discovery for non-policybook policies
             pass

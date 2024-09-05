@@ -24,9 +24,13 @@ ansible-policy works with any policy engine when the required interfaces are imp
 The section below describes how to use ansible-policy with OPA engine as an exmaple.
 
 
-### 1. Install `opa` command
+### 1. Prepare policy engine(s) you use for evaluation
 
-refer to OPA [document](https://github.com/open-policy-agent/opa#want-to-download-opa)
+By default, ansible-policy uses OPA engine.
+
+To install `opa` command, please refer to [OPA installation](https://github.com/open-policy-agent/opa#want-to-download-opa)
+
+If you want to use other policy engine(s), please see [this document](docs/pluggable_policy_engines.md).
 
 ### 2. git clone
 
