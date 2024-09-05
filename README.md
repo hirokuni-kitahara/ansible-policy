@@ -2,9 +2,15 @@
 
 # Ansible Policy
 
-Ansible Policy is a prototype implementation which allows us to define and set constraints to the Ansible project in OPA Rego language. The key features of Ansible Policy are
-- Ansible project is auto scanned as objects and accessible from OPA policy (using ARI project scanning internally).
-- Ansible knowledge base acquired from external sources such as Galaxy can be used from OPA policy.
+Ansible Policy is a prototype implementation which allows us to define and set constraints to the Ansible project and some other types of data. By default, policy evaluation is done by OPA Rego language internally. However, you can use other policy engines just by implementing some interfaces (See [this document](docs/pluggable_policy_engines.md)).
+
+<!--
+TODO: add reference implementation
+([Here](TBD) is an reference implementation of another policy engine.)
+-->
+
+The key features of Ansible Policy are
+- Ansible project is auto scanned as objects and accessible from policies (using ansible-content-capture scanning internally).
 - Multiple policy resolution from the scanned Ansible content.
 - Policies can be packed as an ansible collection.
 - Users can define policy in YAML format (policybook). It can be auto-transformed with PolicyTranspiler.
@@ -12,6 +18,11 @@ Ansible Policy is a prototype implementation which allows us to define and set c
 <img width="992" alt="ap-arch" src="./images/ap-arch.png">
 
 ## Getting started
+
+ansible-policy works with any policy engine when the required interfaces are implemented ([details](docs/pluggable_policy_engines.md)).
+
+The section below describes how to use ansible-policy with OPA engine as an exmaple.
+
 
 ### 1. Install `opa` command
 
@@ -39,7 +50,7 @@ As examples, the following policybooks can be found in the `examples/check_proje
 - `check_collection_policy` [yml](./examples/check_project/policies/check_collection.yml): Check if only authorized collections are used
 - `check_become_policy` [yml](./examples/check_project/policies/check_become.yml): check if `become: true` is used and check if only `trusted user` is used
 
-ansible-policy transpile these policybooks into OPA policy automatically and evaluate the policies.
+By default, ansible-policy transpiles these policybooks into OPA policies automatically and evaluate them.
 
 See this [doc](./ansible_policy/policybook/README.md) about Policybook specification.
 
