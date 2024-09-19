@@ -159,16 +159,29 @@ class OPATranspiler(PolicyTranspiler):
 
 
 def main():
+    # import this only for main function
+    from ansible_policy.config import Source
+
     parser = argparse.ArgumentParser(description="TODO")
     parser.add_argument("-i", "--input", help="")
     parser.add_argument("-o", "--output", help="")
     args = parser.parse_args()
 
-    input = args.input
-    out_dir = args.output
+    input_dir = args.input
+    output_dir = args.output
 
-    pt = OPATranspiler()
-    pt.run(input, out_dir)
+    policy_name = "policy"
+    source = Source(name=policy_name, source=input_dir, type="path")
+    policies = source.install()
+
+    transpiler = OPATranspiler()
+    for policy in policies:
+        if policy.is_policybook:
+            policybook = policy.policybook_data
+            print("policybook filepath:", policybook.filepath)
+            rego_list = transpiler.run(policybook)
+            for rego in rego_list:
+                print("transpiled rego:", rego.body)
 
 
 if __name__ == "__main__":
