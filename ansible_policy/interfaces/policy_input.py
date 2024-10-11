@@ -84,6 +84,7 @@ class PolicyInput(JsonSchemaMixin):
 
 @dataclass
 class PolicyInputFromJSON(PolicyInput):
+    type: str = "json"
 
     @classmethod
     def from_json_str(cls, json_str: str) -> Self:
@@ -96,6 +97,5 @@ class PolicyInputFromJSON(PolicyInput):
     def from_json(cls, data: dict) -> Self:
         input_data = cls()
         for k, v in data.items():
-            if hasattr(input_data, k):
-                setattr(input_data, k, v)
+            setattr(input_data, k, v)
         return input_data

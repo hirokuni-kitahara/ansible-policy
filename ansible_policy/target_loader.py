@@ -7,7 +7,7 @@ from typing import List, Dict
 from ansible_content_capture.scanner import AnsibleScanner
 from ansible_content_capture.models import ScanResult
 
-from ansible_policy.interfaces.policy_input import PolicyInput
+from ansible_policy.interfaces.policy_input import PolicyInput, PolicyInputFromJSON
 from ansible_policy.policy_input import (
     PolicyInputTask,
     PolicyInputPlay,
@@ -136,7 +136,7 @@ class JSONTargetLoader(TargetLoader):
         input_data = load_input_from_json_file(filepath=target_path)
         input_data_for_type = input_data.get("json", [])
         p_input_list = []
-        input_data_class = self.custom_types.get(target_type)
+        input_data_class = self.custom_types.get(target_type, PolicyInputFromJSON)
         for single_input_data in input_data_for_type:
             obj = getattr(single_input_data, "json")
             p_input = input_data_class.from_json(obj)
